@@ -1,11 +1,17 @@
 # My contributions
 
 https://github.com/turboderp/exllamav2/pull/71
+
 https://github.com/turboderp/exllamav2/pull/75
+
 https://github.com/turboderp/exllamav2/pull/76
+
 https://github.com/turboderp/exllamav2/pull/81
+
 https://github.com/turboderp/exllamav2/pull/86
+
 https://github.com/turboderp/exllamav2/pull/106
+
 
 ![image](https://github.com/SinanAkkoyun/exllama-v2/assets/43215895/8cef2095-cf59-4927-980f-3a838fb1829c)
 
