@@ -1,9 +1,13 @@
 # My contributions
 
 https://github.com/turboderp/exllamav2/pull/71
+Code Syntax Highlighter
 https://github.com/turboderp/exllamav2/pull/75
+Speculative Sampling Fix
 https://github.com/turboderp/exllamav2/pull/76
+Exclude caches
 https://github.com/turboderp/exllamav2/pull/81
+Improved Langguessing
 https://github.com/turboderp/exllamav2/pull/86
 https://github.com/turboderp/exllamav2/pull/106
 
