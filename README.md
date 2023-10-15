@@ -2,14 +2,21 @@
 
 https://github.com/turboderp/exllamav2/pull/71
 Code Syntax Highlighter
+
 https://github.com/turboderp/exllamav2/pull/75
 Speculative Sampling Fix
+
 https://github.com/turboderp/exllamav2/pull/76
 Exclude caches
+
 https://github.com/turboderp/exllamav2/pull/81
 Improved Langguessing
+
 https://github.com/turboderp/exllamav2/pull/86
+ChatML format
+
 https://github.com/turboderp/exllamav2/pull/106
+Zephyr Format
 
 ![image](https://github.com/SinanAkkoyun/exllama-v2/assets/43215895/8cef2095-cf59-4927-980f-3a838fb1829c)
 
