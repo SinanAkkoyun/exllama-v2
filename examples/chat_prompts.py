@@ -1,7 +1,7 @@
 
 class PromptFormat:
 
-    botname = "Chatbort"
+    botname = "Bot"
     username = "User"
 
     def __init__(self):
@@ -236,6 +236,38 @@ class PromptFormat_deepseek(PromptFormat):
 
     def print_extra_newline(self):
         return True
+
+class PromptFormat_dragon(PromptFormat):
+
+    description = "llmware dragon format"
+
+    def __init__(self):
+        super().__init__()
+        pass
+
+    def default_system_prompt(self):
+        return \
+            f""""""
+
+    def first_prompt(self):
+        return \
+            """<|system_prompt|>\n""" + \
+            """<human>: <|user_prompt|>\n<bot>: """
+
+    def subs_prompt(self):
+        return \
+            """<human>: <|user_prompt|>\n<bot>: """
+
+    def stop_conditions(self, tokenizer):
+        return \
+            [tokenizer.eos_token_id,
+             """<human>: """]
+
+    def encoding_options(self):
+        return False, False, True
+
+    def print_extra_newline(self):
+        return True
     
 
 prompt_formats = \
@@ -246,7 +278,8 @@ prompt_formats = \
     "chatml": PromptFormat_chatml,
     "tinyllama": PromptFormat_tinyllama,
     "zephyr": PromptFormat_zephyr,
-    "deepseek": PromptFormat_deepseek
+    "deepseek": PromptFormat_deepseek,
+    "dragon": PromptFormat_dragon
 }
 
 
