@@ -1,5 +1,6 @@
 # This is an example of a http steaming server support Github Copilot VSCode extension
-# 1. `uvicorn copilot:app --reload --host 0.0.0.0 --port 9999`
+# 0. Install uvicorn
+# 1. `uvicorn copilot:app --host 0.0.0.0 --port 9999`
 # 2. Configure VSCode copilot extension (in VSCode's settings.json):
 # ```json
 # "github.copilot.advanced": {
@@ -13,6 +14,7 @@ import sys, os
 import time
 import torch
 from uuid import uuid4
+
 
 # Global variable to track the current task
 current_task_id = None
@@ -171,6 +173,9 @@ async def engine_completions(
     suffix = body.suffix
 
     settings = ExLlamaV2Sampler.Settings()
+
+
+    
     settings.temperature = 0.95
     settings.top_k = 50
     settings.top_p = 0.7
