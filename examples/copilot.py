@@ -10,6 +10,7 @@
 # ```
 
 import sys, os
+import time
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -55,7 +56,7 @@ async def startup_event():
     log.debug("Creating tokenizer instance...")
     model = ExLlamaV2(config)
     log.debug("Loading model...")
-    model.load([16, 24])
+    model.load([0, 23])
     log.debug("Creating cache instance...")
     cache = ExLlamaV2Cache(model)
 
@@ -144,6 +145,9 @@ async def engine_completions(
     def stream():
         generator.begin_stream(input_ids, settings)
         generated_tokens = 0
+
+        start_time = time.time()
+
         while True:
             chunk, eos, _ = generator.stream()
             # log.debug("Streaming chunk %s", chunk)
@@ -152,6 +156,11 @@ async def engine_completions(
             created = times()
             generated_tokens += 1
             if eos or generated_tokens == max_new_tokens:
+                print(generated_tokens)
+                print(time.time() - start_time)
+
+                print(generated_tokens / (time.time() - start_time))
+
                 stop_data = json.dumps(
                     {
                         "id": "id",
@@ -190,3 +199,6 @@ async def engine_completions(
         stream(),
         media_type="text/event-stream",
     )
+
+
+# print simple for loop for me
