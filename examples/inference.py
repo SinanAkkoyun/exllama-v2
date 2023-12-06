@@ -18,11 +18,12 @@ import time
 
 # Initialize model and cache
 
-model_directory =  "/home/ai/ml/llm/models/deepseek/coder-1.3B-base/exl2/4.0bpw"
+model_directory =  "/home/ai/ml/llm/models/llama/code-7B/gptq"
 
 config = ExLlamaV2Config()
 config.model_dir = model_directory
 config.prepare()
+# config.scale_pos_emb = 4
 
 model = ExLlamaV2(config)
 print("Loading model: " + model_directory)
@@ -45,14 +46,17 @@ settings.top_p = 0.8
 settings.token_repetition_penalty = 1.05
 settings.disallow_tokens(tokenizer, [tokenizer.eos_token_id])
 
-prompt = "Our story begins in the Scottish town of Auchtermuchty, where once"
+prompt = """#!/usr/bin/env python3
+# get openai completion
+<FILL>
+"""
 
 max_new_tokens = 150
 
 generator.warmup()
 time_begin = time.time()
 
-output = generator.generate_simple(prompt, settings, max_new_tokens, seed = 1234)
+output = generator.generate_simple(prompt, settings, max_new_tokens)
 
 time_end = time.time()
 time_total = time_end - time_begin

@@ -11,6 +11,7 @@
 
 import sys, os
 import time
+import torch
 from uuid import uuid4
 
 # Global variable to track the current task
@@ -52,15 +53,16 @@ async def startup_event():
     log.info("Starting up...")
     log.debug("Creating generator instance...")
 
-    model_directory = "/home/ai/ml/llm/models/deepseek/coder-6.7B-base/gptq"
-    draft_model_directory = "/home/ai/ml/llm/models/deepseek/coder-1.3B-base/exl2/3.0bpw"
+    model_directory = "/home/ai/ml/llm/models/llama/code-7B/gptq"
+    # model_directory = "/home/ai/ml/llm/models/deepseek/coder-6.7B-base/gptq"
+    # draft_model_directory = "/home/ai/ml/llm/models/deepseek/coder-1.3B-base/exl2/3.0bpw"
 
     
 
     config = ExLlamaV2Config()
     config.model_dir = model_directory
     config.prepare()
-    config.scale_pos_emb = 4        
+    # config.scale_pos_emb = 4        
     # config.max_seq_len = 8192
     tokenizer = ExLlamaV2Tokenizer(config)
 
@@ -176,22 +178,36 @@ async def engine_completions(
 
     tokenizer = app.state.tokenizer
     # settings.disallow_tokens(tokenizer, [tokenizer.eos_token_id])
-    max_new_tokens = 200 # body.max_tokens if body.max_tokens else 1024
+    max_new_tokens = body.max_tokens if body.max_tokens else 1024
 
     generator = request.app.state.generator
-    
+
     
     
 
     # Only for stream
-    # generator.set_stop_conditions([tokenizer.eos_token_id])
+    generator.set_stop_conditions([tokenizer.eos_token_id, tokenizer.encode("<EOT>").item()])
+    generator.stop_strings = ["</s>"]
 
     # DeepSeek insert prompt format
     #if suffix is not None:
-    model_input_str = "<｜fim▁begin｜>" + remove_leading_comments(prompt) + "<｜fim▁hole｜>\n" + suffix + "<｜fim▁end｜>"
-    input_ids = tokenizer.encode(model_input_str)
+    # model_input_str = "<｜fim▁begin｜>" + remove_leading_comments(prompt) + "<｜fim▁hole｜>\n" + suffix + "<｜fim▁end｜>"
+    #prompt_ids = tokenizer.encode(remove_leading_comments(prompt))
+    #suffix_ids = tokenizer.encode(suffix)
 
-    print(model_input_str)
+    # codellama
+    #model_input_str = "<s>▁<PRE>" + remove_leading_comments(prompt) + "▁<SUF>" + suffix + "▁<MID>"
+    prompt_ids = tokenizer.encode(remove_leading_comments(prompt))
+    suffix_ids = tokenizer.encode(suffix)
+    print("Prompt ids: " + str(prompt_ids))
+    tensor1 = torch.tensor([[1, 32007]])
+    tensor2 = torch.tensor([[32008]])
+    tensor3 = torch.tensor([[32009]])
+
+    # Concatenate using torch.cat for PyTorch tensors
+    input_ids = torch.cat((tensor1, prompt_ids, tensor2, suffix_ids, tensor3), dim=1)
+
+    # print(model_input_str)
     # else:
     #    input_ids = tokenizer.encode(prompt)
 
@@ -202,6 +218,7 @@ async def engine_completions(
         print("\nNEW STREAM >\n")
         generator.current_seq_len = 0
         generator.begin_stream(input_ids, settings)
+        #generator.begin_stream(prompt_ids, settings)
         generated_tokens = 0
 
         print("stream began")
