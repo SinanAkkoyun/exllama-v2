@@ -1,8 +1,6 @@
 # This is an example of a http steaming server support Github Copilot VSCode extension
-# The server depends on fastapi/uvicorn/huggingface-hub (for auto download the model files), to run the server:
-# 1. `pip install uvicorn fastapi huggingface-hub`
-# 2. `uvicorn copilot:app --reload --host 0.0.0.0 --port 9999`
-# 3. Configure VSCode copilot extension (in VSCode's settings.json):
+# 1. `uvicorn copilot:app --reload --host 0.0.0.0 --port 9999`
+# 2. Configure VSCode copilot extension (in VSCode's settings.json):
 # ```json
 # "github.copilot.advanced": {
 #     "debug.overrideEngine": "engine", # can be any string.
@@ -38,9 +36,6 @@ log = logging.getLogger("uvicorn")
 log.setLevel("DEBUG")
 app = FastAPI()
 
-# Find one here https://huggingface.co/turboderp
-MODEL_HG_REPO_ID = "turboderp/CodeLlama-34B-instruct-3.0bpw-h6-exl2"
-
 
 @app.on_event("startup")
 async def startup_event():
@@ -50,21 +45,11 @@ async def startup_event():
     Edited from https://github.com/chenhunghan/ialacol/blob/main/main.py
     """
     log.info("Starting up...")
-    log.info(
-        "Downloading repo %s to %s/models",
-        MODEL_HG_REPO_ID,
-        os.getcwd(),
-    )
-    snapshot_download(
-        repo_id=MODEL_HG_REPO_ID,
-        cache_dir=f"{os.getcwd()}/models/.cache",
-        local_dir=f"{os.getcwd()}/models",
-        resume_download=True,
-    )
     log.debug("Creating generator instance...")
-    model_directory = f"{os.getcwd()}/models"
+    model_directory = "/home/ai/ml/llm/models/deepseek/coder-1.3B-base/exl2/4.0bpw"    # Your model path
     config = ExLlamaV2Config()
     config.model_dir = model_directory
+    config.scale_pos_emb = 4                                                              # Change to 1 for non-deepseek models
     config.prepare()
     tokenizer = ExLlamaV2Tokenizer(config)
     log.debug("Creating tokenizer instance...")
@@ -90,6 +75,7 @@ class CompletionRequestBody(BaseModel):
     """
 
     prompt: str = ""
+    suffix: str = ""
     max_tokens: Optional[int] = 99999
     temperature: Optional[float] = 0.85
     top_p: Optional[float] = 0.8
@@ -123,10 +109,12 @@ async def engine_completions(
         StreamingResponse: streaming response
     """
     req_json = await request.json()
-    log.debug("Body:%s", str(req_json))
+    # log.debug("Body:%s", str(req_json))
+    print(json.dumps(req_json, indent=4))
 
     body = CompletionRequestBody(**req_json, model=engine)
     prompt = body.prompt
+    suffix = body.suffix
     settings = ExLlamaV2Sampler.Settings()
     settings.temperature = body.temperature if body.temperature else 0.85
     log.debug("temperature:%s", settings.temperature)
@@ -134,27 +122,33 @@ async def engine_completions(
     log.debug("top_k:%s", settings.top_k)
     settings.top_p = body.top_p if body.top_p else 0.8
     log.debug("top_p:%s", settings.top_p)
-    settings.token_repetition_penalty = (
-        body.repetition_penalty if body.repetition_penalty else 1.15
-    )
+    # settings.token_repetition_penalty = (body.repetition_penalty if body.repetition_penalty else 1.05)
+    settings.token_repetition_penalty = 1                                           # DeepSeek models don't like repp
     log.debug("token_repetition_penalty:%s", settings.token_repetition_penalty)
     tokenizer = app.state.tokenizer
-    settings.disallow_tokens(tokenizer, [tokenizer.eos_token_id])
+    # settings.disallow_tokens(tokenizer, [tokenizer.eos_token_id])
     max_new_tokens = body.max_tokens if body.max_tokens else 1024
 
     generator = request.app.state.generator
     generator.set_stop_conditions([tokenizer.eos_token_id])
 
-    input_ids = tokenizer.encode(prompt)
+    # DeepSeek insert prompt format
+    if suffix is not None:
+        input_ids = tokenizer.encode("<｜fim▁begin｜>" + prompt + "<｜fim▁hole｜>" + suffix + "<｜fim▁end｜>")
+    else:
+        input_ids = tokenizer.encode(prompt)
 
     log.debug("Streaming response from %s", engine)
+
 
     def stream():
         generator.begin_stream(input_ids, settings)
         generated_tokens = 0
         while True:
             chunk, eos, _ = generator.stream()
-            log.debug("Streaming chunk %s", chunk)
+            # log.debug("Streaming chunk %s", chunk)
+            # print(chunk, end="")
+
             created = times()
             generated_tokens += 1
             if eos or generated_tokens == max_new_tokens:
