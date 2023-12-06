@@ -69,7 +69,7 @@ async def startup_event():
     
     model = ExLlamaV2(config)
     log.debug("Loading model...")
-    model.load([23, 0])
+    model.load([20, 0])
     cache = ExLlamaV2Cache(model)
 
     #draft_config = ExLlamaV2Config()
@@ -199,7 +199,8 @@ async def engine_completions(
     #model_input_str = "<s>▁<PRE>" + remove_leading_comments(prompt) + "▁<SUF>" + suffix + "▁<MID>"
     prompt_ids = tokenizer.encode(remove_leading_comments(prompt))
     suffix_ids = tokenizer.encode(suffix)
-    print("Prompt ids: " + str(prompt_ids))
+
+
     tensor1 = torch.tensor([[1, 32007]])
     tensor2 = torch.tensor([[32008]])
     tensor3 = torch.tensor([[32009]])
