@@ -11,6 +11,10 @@
 
 import sys, os
 import time
+from uuid import uuid4
+
+# Global variable to track the current task
+current_task_id = None
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -25,7 +29,7 @@ from exllamav2 import (
     ExLlamaV2Tokenizer,
 )
 
-from exllamav2.generator import ExLlamaV2StreamingGenerator, ExLlamaV2Sampler
+from exllamav2.generator import ExLlamaV2StreamingGenerator, ExLlamaV2Sampler, ExLlamaV2BaseGenerator
 
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
@@ -47,21 +51,39 @@ async def startup_event():
     """
     log.info("Starting up...")
     log.debug("Creating generator instance...")
-    model_directory = "/home/ai/ml/llm/models/deepseek/coder-1.3B-base/exl2/4.0bpw"    # Your model path
+
+    model_directory = "/home/ai/ml/llm/models/deepseek/coder-33B-base/gptq"
+    draft_model_directory = "/home/ai/ml/llm/models/deepseek/coder-1.3B-base/exl2/3.0bpw"
+
+
     config = ExLlamaV2Config()
     config.model_dir = model_directory
-    config.scale_pos_emb = 4                                                              # Change to 1 for non-deepseek models
     config.prepare()
+    config.scale_pos_emb = 4        
+    config.max_seq_len = 8192
     tokenizer = ExLlamaV2Tokenizer(config)
-    log.debug("Creating tokenizer instance...")
+    
     model = ExLlamaV2(config)
     log.debug("Loading model...")
-    model.load([0, 23])
-    log.debug("Creating cache instance...")
+    model.load([8, 20])
     cache = ExLlamaV2Cache(model)
 
+
+    draft_config = ExLlamaV2Config()
+    draft_config.model_dir = draft_model_directory
+    draft_config.prepare()  
+    draft_config.max_seq_len = 8192
+    draft_config.scale_pos_emb = 4
+
+    draft_model = ExLlamaV2(config)
+    log.debug("Loading draft model...")
+    #draft_model.load([10, 10])
+    #draft_cache = ExLlamaV2Cache(draft_model)
+
     log.debug("Creating generator instance...")
-    generator = ExLlamaV2StreamingGenerator(model, cache, tokenizer)
+    generator = ExLlamaV2StreamingGenerator(model, cache, tokenizer)#, draft_model, draft_cache)
+    # generator = ExLlamaV2BaseGenerator(model, cache, tokenizer)
+
     # Ensure CUDA is initialized
     log.debug("Warming up generator instance...")
     generator.warmup()
@@ -85,10 +107,29 @@ class CompletionRequestBody(BaseModel):
     model: str = ""
     top_k: Optional[int] = 50
 
-    repetition_penalty: Optional[float] = 15
+    repetition_penalty: Optional[float] = 1
 
     class Config:
         arbitrary_types_allowed = True
+
+def remove_leading_comments(code):
+    lines = code.split('\n')
+    cleaned_lines = []
+    first_comment_found = False
+
+    for line in lines:
+        # Check if the line is a comment
+        if line.startswith("# "):
+            if not first_comment_found:
+                # Keep the first comment
+                cleaned_lines.append(line)
+                first_comment_found = True
+            # Skip the rest of the comments
+            continue
+        # Add non-comment lines
+        cleaned_lines.append(line)
+
+    return '\n'.join(cleaned_lines)
 
 
 @app.post("/v1/engines/{engine}/completions")
@@ -109,46 +150,69 @@ async def engine_completions(
     Returns:
         StreamingResponse: streaming response
     """
+    global current_task_id      # Implemented stopping old completion requests
+
+    # Update the task id for the new request
+    new_task_id = str(uuid4())
+    current_task_id = new_task_id
+
+
     req_json = await request.json()
     # log.debug("Body:%s", str(req_json))
-    print(json.dumps(req_json, indent=4))
+
+    # print(json.dumps(req_json, indent=4))
 
     body = CompletionRequestBody(**req_json, model=engine)
+
     prompt = body.prompt
     suffix = body.suffix
+
     settings = ExLlamaV2Sampler.Settings()
-    settings.temperature = body.temperature if body.temperature else 0.85
-    log.debug("temperature:%s", settings.temperature)
-    settings.top_k = body.top_k if body.top_k else 50
-    log.debug("top_k:%s", settings.top_k)
-    settings.top_p = body.top_p if body.top_p else 0.8
-    log.debug("top_p:%s", settings.top_p)
-    # settings.token_repetition_penalty = (body.repetition_penalty if body.repetition_penalty else 1.05)
-    settings.token_repetition_penalty = 1                                           # DeepSeek models don't like repp
-    log.debug("token_repetition_penalty:%s", settings.token_repetition_penalty)
+    settings.temperature = 0.95
+    settings.top_k = 50
+    settings.top_p = 0.7
+    settings.token_repetition_penalty = 1.05                                           # DeepSeek models don't like repp
+
     tokenizer = app.state.tokenizer
     # settings.disallow_tokens(tokenizer, [tokenizer.eos_token_id])
-    max_new_tokens = body.max_tokens if body.max_tokens else 1024
+    max_new_tokens = 200 # body.max_tokens if body.max_tokens else 1024
 
     generator = request.app.state.generator
-    generator.set_stop_conditions([tokenizer.eos_token_id])
+    
+    
+
+    # Only for stream
+    # generator.set_stop_conditions([tokenizer.eos_token_id])
 
     # DeepSeek insert prompt format
-    if suffix is not None:
-        input_ids = tokenizer.encode("<｜fim▁begin｜>" + prompt + "<｜fim▁hole｜>" + suffix + "<｜fim▁end｜>")
-    else:
-        input_ids = tokenizer.encode(prompt)
+    #if suffix is not None:
+    model_input_str = "<｜fim▁begin｜>" + remove_leading_comments(prompt) + "<｜fim▁hole｜>\n" + suffix + "<｜fim▁end｜>"
+    input_ids = tokenizer.encode(model_input_str)
+
+    print(model_input_str)
+    # else:
+    #    input_ids = tokenizer.encode(prompt)
 
     log.debug("Streaming response from %s", engine)
 
 
     def stream():
+        print("\nNEW STREAM >\n")
+        generator.current_seq_len = 0
         generator.begin_stream(input_ids, settings)
         generated_tokens = 0
+
+        print("stream began")
+
 
         start_time = time.time()
 
         while True:
+            if current_task_id != new_task_id:
+                print("\n< NEW TASK\n")
+                # A new request has come in, stop this generation
+                break
+
             chunk, eos, _ = generator.stream()
             # log.debug("Streaming chunk %s", chunk)
             # print(chunk, end="")
@@ -199,6 +263,3 @@ async def engine_completions(
         stream(),
         media_type="text/event-stream",
     )
-
-
-# print simple for loop for me
