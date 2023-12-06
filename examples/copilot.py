@@ -52,37 +52,38 @@ async def startup_event():
     log.info("Starting up...")
     log.debug("Creating generator instance...")
 
-    model_directory = "/home/ai/ml/llm/models/deepseek/coder-33B-base/gptq"
+    model_directory = "/home/ai/ml/llm/models/deepseek/coder-6.7B-base/gptq"
     draft_model_directory = "/home/ai/ml/llm/models/deepseek/coder-1.3B-base/exl2/3.0bpw"
 
+    
 
     config = ExLlamaV2Config()
     config.model_dir = model_directory
     config.prepare()
     config.scale_pos_emb = 4        
-    config.max_seq_len = 8192
+    # config.max_seq_len = 8192
     tokenizer = ExLlamaV2Tokenizer(config)
+
     
     model = ExLlamaV2(config)
     log.debug("Loading model...")
-    model.load([8, 20])
+    model.load([23, 0])
     cache = ExLlamaV2Cache(model)
 
+    #draft_config = ExLlamaV2Config()
+    #draft_config.model_dir = draft_model_directory
+    #draft_config.prepare()  
+    # draft_config.max_seq_len = 8192
+    #draft_config.scale_pos_emb = 4
 
-    draft_config = ExLlamaV2Config()
-    draft_config.model_dir = draft_model_directory
-    draft_config.prepare()  
-    draft_config.max_seq_len = 8192
-    draft_config.scale_pos_emb = 4
-
-    draft_model = ExLlamaV2(config)
-    log.debug("Loading draft model...")
-    #draft_model.load([10, 10])
+    #draft_model = ExLlamaV2(config)
+    #log.debug("Loading draft model...")
+    #draft_model.load([0, 23])
     #draft_cache = ExLlamaV2Cache(draft_model)
 
     log.debug("Creating generator instance...")
-    generator = ExLlamaV2StreamingGenerator(model, cache, tokenizer)#, draft_model, draft_cache)
-    # generator = ExLlamaV2BaseGenerator(model, cache, tokenizer)
+    generator = ExLlamaV2StreamingGenerator(model, cache, tokenizer)
+
 
     # Ensure CUDA is initialized
     log.debug("Warming up generator instance...")
@@ -99,7 +100,7 @@ class CompletionRequestBody(BaseModel):
 
     prompt: str = ""
     suffix: str = ""
-    max_tokens: Optional[int] = 99999
+    max_tokens: Optional[int] = 500
     temperature: Optional[float] = 0.85
     top_p: Optional[float] = 0.8
     stop: Optional[List[str] | str] = ["\ndef ", "\nclass ", "\nif ", "\n\n#"]
@@ -178,6 +179,7 @@ async def engine_completions(
     max_new_tokens = 200 # body.max_tokens if body.max_tokens else 1024
 
     generator = request.app.state.generator
+    
     
     
 
