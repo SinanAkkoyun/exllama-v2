@@ -174,7 +174,6 @@ async def engine_completions(
 
     settings = ExLlamaV2Sampler.Settings()
 
-
     
     settings.temperature = 0.95
     settings.top_k = 50
