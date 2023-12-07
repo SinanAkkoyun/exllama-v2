@@ -48,6 +48,7 @@ parser.add_argument("-c8", "--cache_8bit", action = "store_true", help = "Use 8-
 
 parser.add_argument("-pt", "--print_timings", action = "store_true", help = "Output timings after each prompt")
 parser.add_argument("-amnesia", "--amnesia", action = "store_true", help = "Forget context after every response")
+parser.add_argument("-ml", "--multi-line", action="store_true", help = "Allow multiline responses")
 
 # Arrrgs
 
@@ -224,12 +225,40 @@ print(f" -- System prompt:")
 print()
 print(col_sysprompt + system_prompt.strip() + col_default)
 
+
 while True:
 
     # Get user prompt
 
     print()
-    up = input(col_user + username + ": " + col_default).strip()
+
+    # Single line input if multiline disabled
+    if not args.multi_line:
+        up = input(col_user + username + ": " + col_default).strip()
+    else:
+        up = ""
+        # Multi line input (continue only on "end")
+        print(col_user + username + ": " + col_default, end="")
+
+        # Loop for multiline input
+        while True:
+            line = input().strip()
+            
+            # Check if the user entered a specific end string (e.g., "END")
+            if line.lower() == "end":
+                # jump to beginning of line and clear line only when up contains more than 0 \n
+                if up != line:
+                    print("\033[F\033[K", end="")
+                    print(" " * len(line), end="")
+                
+                # print("\033[F\033[K", end="")
+               
+                break
+
+            # Append the line to multiline input
+            up += line + "\n"
+
+
     print()
 
     # Add to context
