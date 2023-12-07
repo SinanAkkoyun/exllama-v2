@@ -55,8 +55,7 @@ async def startup_event():
     log.info("Starting up...")
     log.debug("Creating generator instance...")
 
-    model_directory = "/home/ai/ml/llm/models/llama/code-7B/gptq"
-    # model_directory = "/home/ai/ml/llm/models/deepseek/coder-6.7B-base/gptq"
+    model_directory = "/home/ai/ml/llm/models/deepseek/coder-1.3B-base/exl2/3.0bpw"
     # draft_model_directory = "/home/ai/ml/llm/models/deepseek/coder-1.3B-base/exl2/3.0bpw"
 
     
@@ -64,9 +63,10 @@ async def startup_event():
     config = ExLlamaV2Config()
     config.model_dir = model_directory
     config.prepare()
-    # config.scale_pos_emb = 4        
+    config.scale_pos_emb = 4        
     # config.max_seq_len = 8192
     tokenizer = ExLlamaV2Tokenizer(config)
+    print("max seq length: " + str(config.max_seq_len))
 
     
     model = ExLlamaV2(config)
@@ -104,7 +104,7 @@ class CompletionRequestBody(BaseModel):
 
     prompt: str = ""
     suffix: str = ""
-    max_tokens: Optional[int] = 500
+    max_tokens: Optional[int] = 200
     temperature: Optional[float] = 0.85
     top_p: Optional[float] = 0.8
     stop: Optional[List[str] | str] = ["\ndef ", "\nclass ", "\nif ", "\n\n#"]
@@ -174,14 +174,14 @@ async def engine_completions(
 
     settings = ExLlamaV2Sampler.Settings()
 
-    
-    settings.temperature = 0.95
-    settings.top_k = 50
-    settings.top_p = 0.7
-    settings.token_repetition_penalty = 1.05                                           # DeepSeek models don't like repp
+    # old sampling for codellama etc
+    settings.temperature = 1 #0.95
+    settings.top_k = 1 # 50
+    settings.top_p = 0# 0.7
+    settings.token_repetition_penalty = 1.05
+    settings.typical = 0
 
     tokenizer = app.state.tokenizer
-    # settings.disallow_tokens(tokenizer, [tokenizer.eos_token_id])
     max_new_tokens = body.max_tokens if body.max_tokens else 1024
 
     generator = request.app.state.generator
@@ -190,27 +190,11 @@ async def engine_completions(
     
 
     # Only for stream
-    generator.set_stop_conditions([tokenizer.eos_token_id, tokenizer.encode("<EOT>").item()])
-    generator.stop_strings = ["</s>"]
-
-    # DeepSeek insert prompt format
-    #if suffix is not None:
-    # model_input_str = "<｜fim▁begin｜>" + remove_leading_comments(prompt) + "<｜fim▁hole｜>\n" + suffix + "<｜fim▁end｜>"
-    #prompt_ids = tokenizer.encode(remove_leading_comments(prompt))
-    #suffix_ids = tokenizer.encode(suffix)
-
-    # codellama
-    #model_input_str = "<s>▁<PRE>" + remove_leading_comments(prompt) + "▁<SUF>" + suffix + "▁<MID>"
-    prompt_ids = tokenizer.encode(remove_leading_comments(prompt))
-    suffix_ids = tokenizer.encode(suffix)
-
-
-    tensor1 = torch.tensor([[1, 32007]])
-    tensor2 = torch.tensor([[32008]])
-    tensor3 = torch.tensor([[32009]])
+    model_input_str = "<｜begin▁of▁sentence｜><｜fim▁begin｜>" + remove_leading_comments(prompt) + "<｜fim▁hole｜>" + suffix + "<｜fim▁end｜>"
+    
 
     # Concatenate using torch.cat for PyTorch tensors
-    input_ids = torch.cat((tensor1, prompt_ids, tensor2, suffix_ids, tensor3), dim=1)
+    input_ids = tokenizer.encode(model_input_str)
 
     # print(model_input_str)
     # else:
@@ -221,9 +205,8 @@ async def engine_completions(
 
     def stream():
         print("\nNEW STREAM >\n")
-        generator.current_seq_len = 0
+        generator.set_stop_conditions([tokenizer.eos_token_id])
         generator.begin_stream(input_ids, settings)
-        #generator.begin_stream(prompt_ids, settings)
         generated_tokens = 0
 
         print("stream began")
@@ -244,6 +227,8 @@ async def engine_completions(
             created = times()
             generated_tokens += 1
             if eos or generated_tokens == max_new_tokens:
+                if eos:
+                    print("EOS")
                 print(generated_tokens)
                 print(time.time() - start_time)
 

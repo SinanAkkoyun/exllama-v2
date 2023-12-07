@@ -54,10 +54,10 @@ settings.token_repetition_penalty = 1
 # 
 """
 
-#prompt = """<｜begin▁of▁sentence｜><｜fim▁begin｜>#!/usr/bin/env python3
-## get openai completion API in python
-#<｜fim▁hole｜>
-#<｜fim▁end｜>"""
+prompt = """<｜begin▁of▁sentence｜><｜fim▁begin｜>#!/usr/bin/env python3
+# get openai completion API in python
+<｜fim▁hole｜>
+<｜fim▁end｜>"""
 
 prompt = """Once upon a time, there """
 
