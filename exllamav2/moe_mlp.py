@@ -174,9 +174,8 @@ class ExLlamaV2MoEMLP(ExLlamaV2Module):
     def forward_torch(self, hidden_states, cache = None, attn_mask = None, intermediates = False, loras = None, position_offsets = None):
 
         batch_size, sequence_length, hidden_dim = hidden_states.shape
-        hidden_states = hidden_states.view(-1, hidden_dim)
-
         residual = hidden_states
+        hidden_states = hidden_states.view(-1, hidden_dim)
         hidden_states = self.post_attention_layernorm.forward(hidden_states)
 
         router_logits = self.gate.forward(hidden_states, loras = loras)[:, :self.num_experts]
